@@ -1,7 +1,7 @@
 CC=gcc
 CFLAGS=-g -Wall -Wextra -pedantic -std=gnu99 -pthread
 EXAMPLES=fibs fauxgrep fauxgrep-mt fhistogram fhistogram-mt 
-TESTS=fib-test.sh
+TESTS=fib-test.sh fhistogram-test.sh
 
 .PHONY: all test clean ../src.zip
 
