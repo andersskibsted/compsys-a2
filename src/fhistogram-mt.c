@@ -23,6 +23,7 @@ pthread_mutex_t stdout_mutex = PTHREAD_MUTEX_INITIALIZER;
 #include "histogram.h"
 
 int global_histogram[8] = {0};
+int global_byte_count = 0;
 
 int fhistogram(char const *path) {
   FILE *f = fopen(path, "r");
@@ -42,15 +43,17 @@ int fhistogram(char const *path) {
     i++;
     update_histogram(local_histogram, c);
     if ((i % 100000) == 0) {
+      global_byte_count += 100000;
       merge_histogram(local_histogram, global_histogram);
-      print_histogram(global_histogram);
+      if ((global_byte_count % 500000) == 0) {
+        print_histogram(global_histogram);
+      }
     }
   }
 
   fclose(f);
 
   merge_histogram(local_histogram, global_histogram);
-  print_histogram(global_histogram);
 
   return 0;
 }
@@ -143,6 +146,8 @@ int main(int argc, char *const *argv) {
   }
 
   fts_close(ftsp);
+
+  print_histogram(global_histogram);
 
   // Shut down the job queue and the worker threads here.
   // Destroy the queue.
