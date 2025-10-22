@@ -1,6 +1,7 @@
 CC=gcc
 CFLAGS=-g -Wall -Wextra -pedantic -std=gnu99 -pthread
 EXAMPLES=fibs fauxgrep fauxgrep-mt fhistogram fhistogram-mt 
+TESTS=fib-test.sh fhistogram-test.sh
 
 .PHONY: all test clean ../src.zip
 
@@ -16,7 +17,7 @@ test: $(TESTS)
 	@set e; for test in $(TESTS); do echo ./$$test; ./$$test; done
 
 clean:
-	rm -rf $(TESTS) $(EXAMPLES) *.o core
+	rm -rf $(EXAMPLES) *.o core ./test
 
 zip: ../src.zip
 
