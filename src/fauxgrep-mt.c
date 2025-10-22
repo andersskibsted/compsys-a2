@@ -24,16 +24,10 @@
 pthread_mutex_t fglock = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t fgcond = PTHREAD_COND_INITIALIZER;
 
-typedef struct __worker_args {
-  const char *needle;
-  const char *path;
-} worker_args;
-
 typedef struct __thread_args {
   const char *needle;
   struct job_queue *jq;
 } thread_args;
-//char* needle;
 
 int fauxgrep_file(char const *needle, char const *path) {
   FILE *f = fopen(path, "r");
@@ -69,17 +63,8 @@ void *worker(void *arg) {
   while (1) {
     char *path;
     pthread_mutex_lock(&fglock);
-    int jqresult = job_queue_pop(jq, (void **)&path);
-    //fauxgrep_file(needle, path);
-    //printf("%d\n", jqresult);
-    //printf("%s\n", path);
-    //fauxgrep_file(needle, path);
-    //    if (job_queue_pop(jq, (void **)&path) == 0) {
-    if (jqresult == 0) { 
+    if (job_queue_pop(jq, (void **)&path) == 0) { 
       // Process next job-string in queue.
-      // const char *new_needle = args->needle;
-      //const char *new_path = args->path;
-
       fauxgrep_file(needle, path);
       free(path);
       pthread_mutex_unlock(&fglock);
@@ -88,7 +73,6 @@ void *worker(void *arg) {
       pthread_mutex_unlock(&fglock);
       break;
     }
-    pthread_mutex_unlock(&fglock);
   }
   return NULL;
 }
@@ -126,11 +110,12 @@ int main(int argc, char * const *argv) {
     paths = &argv[2];
   }
 
-  //struct job_queue *queue = malloc(sizeof(struct job_queue));
   struct job_queue queue;
   job_queue_init(&queue, 64);
 
-  // Create worker threads
+  // Create worker threads and bundle needle in with queue as argument.
+  // This way the workers will know the needle, and can just pop the
+  // path from job_queue.   
   pthread_t *threads = calloc(num_threads, sizeof(pthread_t));
   thread_args *thread_arg = malloc(sizeof(thread_args));
   thread_arg->jq = &queue;
@@ -146,10 +131,6 @@ int main(int argc, char * const *argv) {
   // uses.)
   int fts_options = FTS_LOGICAL | FTS_NOCHDIR;
   
-  // allocate space for worker_args. Probably should be an array, as
-  // this seems to be asking for memory-trouble  
-  /* worker_args **current_arg = malloc(sizeof(worker_args)*num_threads); */
-
 
   FTS *ftsp;
   if ((ftsp = fts_open(paths, fts_options, NULL)) == NULL) {
@@ -158,31 +139,24 @@ int main(int argc, char * const *argv) {
   }
 
   FTSENT *p;
-  //pthread_mutex_lock(&fglock);      
   while ((p = fts_read(ftsp)) != NULL) {
-    //worker_args *arg = malloc(sizeof(worker_args));
     
     switch (p->fts_info) {
     case FTS_D:
       break;
     case FTS_F:
-      // arg->needle = needle;
-      // arg->path = strdup(p->fts_path);
-      /* pthread_mutex_lock(&fglock); */
-      job_queue_push(&queue, (void *)strdup(p->fts_path));
-      /* pthread_mutex_unlock(&fglock); */
       // Process the file p->fts_path, somehow.
-        
+      job_queue_push(&queue, (void *)strdup(p->fts_path));
       break;
     default:
       break;
     }
   }
-  //pthread_mutex_unlock(&fglock);
   fts_close(ftsp);
   
   job_queue_destroy(&queue); // Shut down the job queue and the worker threads here.
 
+  // Wait for all threads to finish before exiting.
   for (int i = 0; i < num_threads; i++) {
     if (pthread_join(threads[i], NULL) != 0) {
       err(1, "pthread_join() failed");
