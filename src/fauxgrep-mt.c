@@ -27,7 +27,13 @@ pthread_cond_t fgcond = PTHREAD_COND_INITIALIZER;
 typedef struct __worker_args {
   const char *needle;
   const char *path;
-} worker_args;  
+} worker_args;
+
+typedef struct __thread_args {
+  const char *needle;
+  struct job_queue *jq;
+} thread_args;
+//char* needle;
 
 int fauxgrep_file(char const *needle, char const *path) {
   FILE *f = fopen(path, "r");
@@ -56,19 +62,33 @@ int fauxgrep_file(char const *needle, char const *path) {
 }
 
 void *worker(void *arg) {
-  struct job_queue *jq = arg;
+  thread_args* args = (thread_args*) arg;
+  struct job_queue *jq = args->jq;
+  const char* needle = args->needle;
 
   while (1) {
-    worker_args *args;
-    if (job_queue_pop(jq, (void*)args) == 0) {
+    char *path;
+    pthread_mutex_lock(&fglock);
+    int jqresult = job_queue_pop(jq, (void **)&path);
+    //fauxgrep_file(needle, path);
+    //printf("%d\n", jqresult);
+    //printf("%s\n", path);
+    //fauxgrep_file(needle, path);
+    //    if (job_queue_pop(jq, (void **)&path) == 0) {
+    if (jqresult == 0) { 
       // Process next job-string in queue.
-      const char *new_needle = args->needle;
-      const char *new_path = args->path;
-      fauxgrep_file(new_needle, new_path);
+      // const char *new_needle = args->needle;
+      //const char *new_path = args->path;
+
+      fauxgrep_file(needle, path);
+      free(path);
+      pthread_mutex_unlock(&fglock);
     } else {
       // Job queue empty, end thread.
+      pthread_mutex_unlock(&fglock);
       break;
     }
+    pthread_mutex_unlock(&fglock);
   }
   return NULL;
 }
@@ -111,9 +131,12 @@ int main(int argc, char * const *argv) {
   job_queue_init(&queue, 64);
 
   // Create worker threads
-  pthread_t *threads = malloc(num_threads * sizeof(pthread_t));
+  pthread_t *threads = calloc(num_threads, sizeof(pthread_t));
+  thread_args *thread_arg = malloc(sizeof(thread_args));
+  thread_arg->jq = &queue;
+  thread_arg->needle = needle;
   for (int i = 0; i<num_threads; i++) {
-    pthread_create(&threads[i], NULL, &worker, &queue);
+    pthread_create(&threads[i], NULL, &worker, thread_arg);
   }  
   // 
   // FTS_LOGICAL = follow symbolic links
@@ -135,16 +158,19 @@ int main(int argc, char * const *argv) {
   }
 
   FTSENT *p;
+  //pthread_mutex_lock(&fglock);      
   while ((p = fts_read(ftsp)) != NULL) {
-    worker_args *arg = malloc(sizeof(worker_args));
+    //worker_args *arg = malloc(sizeof(worker_args));
     
     switch (p->fts_info) {
     case FTS_D:
       break;
-    case FTS_F: 
-      arg->needle = needle;
-      arg->path = p->fts_path;
-      job_queue_push(&queue, arg);
+    case FTS_F:
+      // arg->needle = needle;
+      // arg->path = strdup(p->fts_path);
+      /* pthread_mutex_lock(&fglock); */
+      job_queue_push(&queue, (void *)strdup(p->fts_path));
+      /* pthread_mutex_unlock(&fglock); */
       // Process the file p->fts_path, somehow.
         
       break;
@@ -152,10 +178,16 @@ int main(int argc, char * const *argv) {
       break;
     }
   }
-
+  //pthread_mutex_unlock(&fglock);
   fts_close(ftsp);
-
+  
   job_queue_destroy(&queue); // Shut down the job queue and the worker threads here.
 
+  for (int i = 0; i < num_threads; i++) {
+    if (pthread_join(threads[i], NULL) != 0) {
+      err(1, "pthread_join() failed");
+    }
+  }    
+  free(threads);
   return 0;
 }
