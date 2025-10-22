@@ -34,6 +34,7 @@ int job_queue_destroy(struct job_queue *job_queue) {
     pthread_cond_wait(&cond, &lock);
     pthread_mutex_unlock(&lock);
   }
+  
   die = 1;
   pthread_cond_broadcast(&cond);
   free(job_queue->queue);
@@ -44,7 +45,7 @@ int job_queue_destroy(struct job_queue *job_queue) {
 
 int job_queue_push(struct job_queue *job_queue, void *data) {
   int exit_code = -1;
-  // printf("start push\n");
+  
   pthread_mutex_lock(&lock);
   while (job_queue->current_capacity <= 0) {
     
@@ -81,10 +82,11 @@ int job_queue_pop(struct job_queue *job_queue, void **data) {
   }
   // If queue is to be killed, wake up everybody and return.
   if (die) {
-    pthread_mutex_unlock(&lock);
+    pthread_mutex_unlock(&lock); 
     pthread_cond_broadcast(&cond);
     return exit_code;
   }
+
 
 
     // Place next available job in output location.
@@ -99,6 +101,5 @@ int job_queue_pop(struct job_queue *job_queue, void **data) {
     exit_code = 0;
     pthread_mutex_unlock(&lock);
     pthread_cond_signal(&cond);
-
   return exit_code;
 }
