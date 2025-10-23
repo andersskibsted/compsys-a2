@@ -14,13 +14,17 @@ echo "Testing 1 thread:"
 time -p ./fhistogram-mt -n 1 "test"
 
 echo ""
+echo "Testing 2 thread:"
+time -p ./fhistogram-mt -n 2 "test"
+
+echo ""
+echo "Testing 4 thread:"
+time -p ./fhistogram-mt -n 4 "test"
+
+echo ""
 echo "Testing 10 threads:"
 time -p ./fhistogram-mt -n 10 "test" 
 
 echo ""
 echo "Testing 20 threads:"
 time -p ./fhistogram-mt -n 20 "test" 
-
-echo ""
-echo "Testing many threads:"
-time -p ./fhistogram-mt -n 1000 "test" 
