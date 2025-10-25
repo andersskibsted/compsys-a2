@@ -9,8 +9,6 @@ mkdir -p "test-fauxgrep"
 for i in {1..10}; do
     filename="test-fauxgrep/fauxgrep-input-$i.txt"
     head -c 10000000 /dev/urandom | base64 | fold -w 80 > "$filename"
-    #head -c $bytes_per_file /dev/urandom > "$filename"
-    #cat /dev/urandom | base64 | head -c 8000 | fold -w 80
 done 
 
 
@@ -31,10 +29,12 @@ else
   echo "fauxgrep-mt and fauxgrep produces identical output."
   cat differences.txt
 fi
+rm differences.txt
+
 echo ""
 echo ""
 # Test throughput
-echo "Testing throughput"
+echo "Testing throughput and speed"
 echo ""
 
 echo "Testing 1 thread"
@@ -59,21 +59,5 @@ echo ""
 echo "Testing unthread version"
 time -p ./fauxgrep ${search_term} test-fauxgrep > /dev/null
 
-
-# Test speed 
-echo ""
-echo "Speed tests:"
-echo ""
-
-echo "fauxgrep-mt with 5 threads small files"
-time ./fauxgrep-mt -n 5 for test-fauxgrep > /dev/null
-   
-echo ""
-
-echo "fauxgrep-mt with 5 threads small files"
-time ./fauxgrep-mt -n 5 for test-fauxgrep > /dev/null
-
-echo "fauxgrep with small files"
-time ./fauxgrep for test-fauxgrep > /dev/null
-
-echo ""
+rm test-fauxgrep/*
+rmdir test-fauxgrep
