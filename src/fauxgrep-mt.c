@@ -22,7 +22,6 @@
 #include "job_queue.h"
 
 pthread_mutex_t fglock = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t fgcond = PTHREAD_COND_INITIALIZER;
 
 typedef struct __thread_args {
   const char *needle;
@@ -42,8 +41,10 @@ int fauxgrep_file(char const *needle, char const *path) {
   int lineno = 1;
 
   while (getline(&line, &linelen, f) != -1) {
-    if (strstr(line, needle) != NULL) {
+    if (strstr(line, needle) != NULL) {      
+      assert(pthread_mutex_lock(&fglock) == 0);
       printf("%s:%d: %s", path, lineno, line);
+      assert(pthread_mutex_unlock(&fglock) == 0);
     }
 
     lineno++;
@@ -62,19 +63,17 @@ void *worker(void *arg) {
 
   while (1) {
     char *path;
-    pthread_mutex_lock(&fglock);
     if (job_queue_pop(jq, (void **)&path) == 0) { 
       // Process next job-string in queue.
-      fauxgrep_file(needle, path);
+      assert(fauxgrep_file(needle, path) == 0);
       free(path);
-      pthread_mutex_unlock(&fglock);
     } else {
       // Job queue empty, end thread.
-      pthread_mutex_unlock(&fglock);
       break;
     }
   }
   return NULL;
+  
 }
 
 
@@ -121,7 +120,9 @@ int main(int argc, char * const *argv) {
   thread_arg->jq = &queue;
   thread_arg->needle = needle;
   for (int i = 0; i<num_threads; i++) {
-    pthread_create(&threads[i], NULL, &worker, thread_arg);
+    if (pthread_create(&threads[i], NULL, &worker, thread_arg) != 0) {
+      err(1, "pthread_create() failed");
+    }      
   }  
   // 
   // FTS_LOGICAL = follow symbolic links

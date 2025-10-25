@@ -50,8 +50,8 @@ int job_queue_push(struct job_queue *job_queue, void *data) {
   while (job_queue->current_capacity <= 0) {
     
     pthread_cond_wait(&cond, &lock);
-
   }
+   
   // Insert data at next available point
   job_queue->queue[job_queue->insert_point] = data;
   
@@ -82,16 +82,16 @@ int job_queue_pop(struct job_queue *job_queue, void **data) {
   }
   // If queue is to be killed, wake up everybody and return.
   if (die) {
-    pthread_mutex_unlock(&lock); 
-    pthread_cond_broadcast(&cond);
+    pthread_mutex_unlock(&lock);
+    //pthread_cond_broadcast(&cond);
+    pthread_cond_signal(&cond);
     return exit_code;
   }
 
 
 
     // Place next available job in output location.
-    // Should be pointer to void pointer, but still need
-    // to figure out how that works.
+
     data[0] = (void*) (job_queue->queue[job_queue->next_job]);
     job_queue->queue[job_queue->next_job] = NULL;
     job_queue->next_job++;
