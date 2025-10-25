@@ -4,6 +4,7 @@ search_term=are
 
 #!/usr/bin/env sh
 
+make 
 mkdir -p "test-fauxgrep"
 
 for i in {1..10}; do
@@ -30,6 +31,8 @@ else
   cat differences.txt
 fi
 rm differences.txt
+rm fil1.txt
+rm fil2.txt
 
 echo ""
 echo ""
